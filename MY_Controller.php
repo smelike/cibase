@@ -7,23 +7,17 @@ class MY_Controller extends CI_Controller{
     public $username;
     public $priv;
 
-	public function __construct(){
+	public function __construct()
+    {
         parent::__construct();
         $this->CI =& get_instance();
         $this->CI->load->model('Data_model');
         $this->load->helper(array('url'));
         //加载验证类
         $this->load->library(array('form_validation','pagination'));
-        if(!isset($_SESSION['user'])){
-            redirect(site_url('/login/index'));
-        }
-        $this->uid        = intval($_SESSION['user']['id']);
-        $this->group_id   = intval($_SESSION['user']['user_group_id']);
-        $this->username   = $_SESSION['user']['username'];
-        $this->company_id = intval($_SESSION['user']['company_id']);
-        $this->middler_id = intval($_SESSION['user']['middler_id']);
-        $this->middler_com_id = intval($_SESSION['user']['middler_com_id']);
-        $this->mobile     = $_SESSION['user']['mobile'];
+
+        $this->loginSession();
+
        // $this->checkPurview();        $this->priv =$this->getPurs('',1);
         $this->load->vars('priv',$this->priv);
         if($this->uid != 1){//超级管理员不用验证  admin 123456
@@ -32,9 +26,30 @@ class MY_Controller extends CI_Controller{
             
         }
     }
+    private function loginSession()
+    {
+        if(!isset($_SESSION['user'])) {
+
+            if($this->input->is_ajax_request())
+            {
+                echo json_encode(array('s'=>0,'msg'=>'登陆已经超时，请重新登陆'));
+            } else {
+                redirect(site_url('/login/index'));
+            }
+            //exit();
+        }
+        $this->uid        = intval($_SESSION['user']['id']);
+        $this->group_id   = intval($_SESSION['user']['user_group_id']);
+        $this->username   = $_SESSION['user']['username'];
+        $this->company_id = intval($_SESSION['user']['company_id']);
+        $this->middler_id = intval($_SESSION['user']['middler_id']);
+        $this->middler_com_id = intval($_SESSION['user']['middler_com_id']);
+        $this->mobile     = $_SESSION['user']['mobile'];
+    }
 
     // 判断是否有权限
-    protected function checkPurview(){
+    protected function checkPurview()
+    {
         //获取url
         $class = $this->CI->uri->segment(1);
         $method = $this->CI->uri->segment(2);
@@ -44,24 +59,19 @@ class MY_Controller extends CI_Controller{
         $this->load->vars('route',$route);
 
         //获取权限信息
-        $url_wh = array();
-        $url_wh['url'] = trim($route);
-        $url_wh['status'] = 1;
-        $url_wh['type'] = 2;
+        $url_wh = array('url' => trim($route), 'status' => 1, 'type' => 2);
         $url = $this->Data_model->getSingle($url_wh,'user_rule');
 
         //获取用户权限
-        $user_group_wh = array();
-        $user_group_wh['id'] = $this->group_id;
+        $user_group_wh = array('id' => $this->group_id);
         $user_group = $this->Data_model->getSingle($user_group_wh,'user_group');
-        //print_r($user_group);exit;
-        if(!$user_group['rule']){
+
+        if(!$user_group['rule']) {
             $msg_head = '无权操作';
             $msg = '你没有权限访问该页面';
             return show_error($msg,403,$msg_head);
             exit();
         }
-       
 
         $user_rule = explode(',',$user_group['rule']);
         $this->priv =$this->getPurs($user_rule);
@@ -69,7 +79,7 @@ class MY_Controller extends CI_Controller{
 
         if(in_array($url['id'],$user_rule)){
             return true;
-        }else{
+        } else {
             if($this->input->is_ajax_request()){
                 echo json_encode(array('s'=>0,'msg'=>'无权操作'));
                 exit();
@@ -83,16 +93,13 @@ class MY_Controller extends CI_Controller{
     }
 
      //获得权限数组
-    private function getPurs($rule,$admin=0){
-        $where = array();
-        $where['id'] = $rule;
-        $where['status'] = 1;
+    private function getPurs($rule,$admin=0)
+    {
+        $where = array('id' => $rule, 'status' => 1);
+        $where = $admin ? array() : $where;
+        $order_by = 'id asc';
+        $rule_arr = $this->Data_model->getData($where,$order_by,0,0,'user_rule','url');
 
-        if($admin){
-            $where = array(); 
-        }
-        $data_order = 'id asc';
-        $rule_arr = $this->Data_model->getData($where,$data_order,0,0,'user_rule','url');
         $ret = array();
         foreach ($rule_arr as $key => $value) {
             $ret[] = $value['url'];
@@ -100,7 +107,8 @@ class MY_Controller extends CI_Controller{
         return $ret;
     }
 
-    public function sendSMS($mobile, $code){
+    public function sendSMS($mobile, $code)
+    {
         //时区设置：亚洲/上海
         date_default_timezone_set('Asia/Shanghai');
         require APPPATH.'/libraries/Alidayu/TopClient.php';
@@ -149,7 +157,8 @@ class MY_Controller extends CI_Controller{
         }
     }
 
-    public function sms_log($mobile,$code,$session_id){
+    public function sms_log($mobile,$code,$session_id)
+    {
         //判断是否存在验证码
         $data = $this->Data_model->getSingle(array('mobile'=>$mobile,'session_id'=>$session_id),'sms_log');
         //获取时间配置
@@ -171,7 +180,8 @@ class MY_Controller extends CI_Controller{
     /**
      * 短信验证码验证
      */
-    public function sms_code_verify($mobile,$code,$session_id){
+    public function sms_code_verify($mobile,$code,$session_id)
+    {
         //判断是否存在验证码
         //echo $mobile,$code,$session_id;exit;
         $data = $this->Data_model->getSingle(array('mobile'=>$mobile,'session_id'=>$session_id,'code'=>$code),'sms_log');
@@ -189,35 +199,51 @@ class MY_Controller extends CI_Controller{
     }
 
     //导出
-    public function exports($name,$title,$content){
+    public function exports($name,$title,$content)
+    {
         $this->load->library('Excels');
         $this->excels->exports($content,$title,$name);
     }
 
-    // 获取汇率
-    protected function get_rate($platform_id){
+    /*  @获取对某个卖家应收取的汇率
+     *  @param $platform_id
+     *  @return int
+    */
+    protected function get_rate($platform_id)
+    {
         $rate_table = 'company_rate a';
-        $rate_join = array();
-        $rate_join[] = array('currency b','b.id = a.currency_id','left');
-        $rate_join[] = array('platform c','c.currency_id = b.id','left');
-        $rate_wh = array();
-        $rate_wh['c.id'] = intval($platform_id);
-        $rate_wh['a.company_id'] = $this->company_id;
-        $rate_wh['a.status'] = 1;
+        $rate_join = array(
+            array('currency b','b.id = a.currency_id','left'),
+            array('platform c','c.currency_id = b.id','left')
+        );
+
+        $rate_wh = array(
+            'c.id' => intval($platform_id),
+            'a.company_id' => $this->company_id,
+            'a.status' => 1
+        );
         $rate_fields = 'a.id,a.real_rate,b.name,b.rate,b.code';
-        $rate_order = '';
-        $rate_group = '';
-        $rate_first = 0;
-        $rate_num = 0;
+        $rate_order = $rate_group = '';
+        $rate_first = $rate_num = 0;
         $rate_info = $this->Data_model->getJoinData($rate_table, $rate_join, $rate_wh, $rate_fields, $rate_order, $rate_group, $rate_first, $rate_num);
-        if($rate_info){
-            return floatval($rate_info[0]['rate']) + floatval($rate_info[0]['real_rate']);
-        }else{
-            return 0;
+
+        $rate = 0;
+        // 当前货币汇率 + 某个公司的浮动汇率
+        if($rate_info) {
+            $rate = floatval($rate_info[0]['rate']) + floatval($rate_info[0]['real_rate']);
         }
+
+        return $rate;
     }
 
-    // 获取操作费
+    /* @获取对某个卖家的刷单或刷屏操作费
+     * 计算公式：操作费 = order_price + comment_price + collection_price + relation_visit + fast_comment_price
+     * @param $type [1 - ?, 2 - ?]
+     * @param $collection [是否加入收藏]
+     * @param $is_relation [是否关联访问]
+     * @param $fast_comment [是否上评]
+     * @return int
+     */
     protected function get_handle_price($type=1,$collection=2,$is_relation=2,$fast_comment=2){
         $price = 0;
         //获取费用信息
@@ -243,40 +269,39 @@ class MY_Controller extends CI_Controller{
     }
 
     // 判断是否任务冲突
-    protected function is_task($ASIN,$type,$start_time,$end_time){
+    protected function is_task($ASIN,$type,$start_time,$end_time)
+    {
         //查询任务
         $table = 'product a';
-        $join = array();
+        $where = $join = array();
         $join[] = array('product_num b','b.productid = a.id','left');
-        $where = array();
-        if($ASIN != ''){
-            $where['a.ASIN'] = $ASIN;
-        }
-        if($type != ''){
-            $where['a.type'] = $type;
-        }
+
+        empty($ASIN) ?  '' : $where['a.ASIN'] = $ASIN;
+        empty($type) ?  '' : $where['a.type'] = $type;
+        $where['a.company_id'] = $this->company_id;
+
         $sql1 = 'b.tasktime between ' . strtotime($start_time) . ' and ' . strtotime($end_time);
         $this->db->where($sql1);
-        $where['a.company_id'] = $this->company_id;
-        $fields = 'b.id,a.ASIN,a.type,b.tasktime';
-        $order = 'b.tasktime ASC';
+
         $group = '';
-        $first = 0;
-        $num = 0;
+        $first = $num = 0;
+        $order = 'b.tasktime ASC';
+        $fields = 'b.id,a.ASIN,a.type,b.tasktime';
+
         $list = $this->Data_model->getJoinData($table, $join, $where, $fields, $order, $group, $first, $num);
 
         return $list;
     }
 
     //发送通知给中介
-    protected function send_notice($msg) {
+    protected function send_notice($msg)
+    {
         //获取接受人
-        $com_wh = array();
-        $com_wh['company_id'] = $this->middler_com_id;
-        $com_wh['type'] = 1;
         $order_by = '';
+        $com_wh = array('company_id' => $this->middler_com_id, 'type' => 1);
+
         $receive_user = $this->Data_model->getData($com_wh,$order_by,0,0,'user');
-        if($receive_user){
+        if($receive_user) {
             //发送的消息数据
             $_msg = array();
             $_msg['message_type_id'] = 1;
@@ -297,114 +322,93 @@ class MY_Controller extends CI_Controller{
                 $this->db->set($accp_data)->insert('message_link');
             }
             $this->db->trans_complete();
-            if ($this->db->trans_status() === FALSE){
-                return 2;
-            }else{
-                return 1;
-            }
+
+            return ($this->db->trans_status() === false) ? 2 : 1;
         }
     }
 
     //查询平台
-    protected function query_platform($where = null){
+    protected function query_platform($where = null)
+    {
         $table = 'platform a';
-        $join = array();
-        $join[] = array('currency b','b.id = a.currency_id','left');
-        $where['a.status'] = 1;
-        $where['b.status'] = 1;
+        $join = array(
+            array('currency b','b.id = a.currency_id','left')
+        );
+        $where['a.status'] = $where['b.status'] = 1;
         $fields = 'a.id,a.name,a.url,b.name as currency,b.code,b.rate,a.create_time';
         $order = 'a.id asc';
         $group = '';
-        $first = 0;
-        $num = 0;
+        $first = $num = 0;
         $list = $this->Data_model->getJoinData($table, $join, $where, $fields, $order, $group, $first, $num);
 
         return $list;
     }
 
     //查询公司的平台
-    protected function query_middler_platform($company_id = '',$first = 0,$num = 0,$where = null){
+    protected function query_middler_platform($company_id = '',$first = 0,$num = 0,$where = null)
+    {
         $list = array();
-        if($company_id == ''){
-            return $list;
-        }else{
-            //公司平台信息
+        if($company_id)
+        {
             $table = 'com_platform a';
-            $join = array();
-            $join[] = array('platform b','b.id = a.platform_id','left');
-            $join[] = array('currency c','c.id = b.currency_id','left');
+            $join = array(
+                array('platform b','b.id = a.platform_id','left'),
+                array('currency c','c.id = b.currency_id','left')
+            );
             $where['a.company_id'] = $company_id;
-            $where['a.status'] = 1;
-            $where['b.status'] = 1;
-            $where['c.status'] = 1;
+            $where['a.status'] = $where['b.status'] = $where['c.status'] = 1;
             $fields = 'b.id,b.name,b.url,c.name as currency,c.code,c.rate,a.task_start,a.task_end,b.create_time';
             $order = 'b.id asc';
             $group = '';
-            $first = $first;
-            $num = $num;
             $list = $this->Data_model->getJoinData($table, $join, $where, $fields, $order, $group, $first, $num);
-
-            return $list;
         }
+
+        return $list;
     }
 
     //获取用户名
-    protected function get_user_name($uid){
+    protected function get_user_name($uid)
+    {
         $user = $this->Data_model->getSingle(array('id' => intval($uid)),'user');
-        if($user){
-            return $user['username'];
-        }else{
-            return '';
-        }
+        return $user ? $user['username'] : "";
     }
 
     //获取该中介下所以的成员
-    protected function get_company_member(){
+    protected function get_company_member()
+    {
         $com_wh = array();
         $com_wh['company_id'] = $this->company_id;
         $order_by = '';
         $com_people = $this->Data_model->getData($com_wh,$order_by,0,0,'user');
-        if($com_people){
-            return $com_people;
-        }else{
-            return null;
-        }
+        return $com_people ? $com_people : "";
     }
 
     //获取平台名字
-    protected function get_platform_name($platform_id) {
+    protected function get_platform_name($platform_id)
+    {
         $platform = $this->Data_model->getSingle(array('id'=>(int)$platform_id),'platform');
-        if($platform){
-            return $platform['name'];
-        }else{
-            return null;
-        }
+        return $platform ? $platform['name'] : "";
     }
 
     //获取平台网址
-    protected function get_platform_url($platform_id) {
+    protected function get_platform_url($platform_id)
+    {
         $platform = $this->Data_model->getSingle(array('id'=>(int)$platform_id),'platform');
-        if($platform){
-            return $platform['url'];
-        }else{
-            return null;
-        }
+        return $platform ? $platform['url'] : "";
     }
 
     //获取店铺名字
-    protected function get_shop_name($shop_id) {
+    protected function get_shop_name($shop_id)
+    {
         $shop = $this->Data_model->getSingle(array('id'=>(int)$shop_id),'store');
-        if($shop){
-            return $shop['name'];
-        }else{
-            return null;
-        }
+        return $shop ? $shop['name'] : "";
     }
 
     //获取平台货币
-    protected function get_currency($platform_id = ''){
+    protected function get_currency($platform_id = '')
+    {
         $code = '￥';
-        if($platform_id){
+        if($platform_id) {
             $pt_wh = array();
             $pt_wh['a.id'] = $platform_id;
             $pt_info = $this->query_platform($pt_wh);
@@ -414,19 +418,23 @@ class MY_Controller extends CI_Controller{
         return $code;
     }
     //代替字符串空格
-    protected function emptyreplace($str,$s) {
+    protected function emptyreplace($str,$s)
+    {
+        // == 优先级大于 &&
         $str = str_replace('　', ' ', $str);
         $str = str_replace(' ', ' ', $str);
-        $noe = false;
-        for ($i=0 ; $i<strlen($str); $i++) {
-            if($noe && $str[$i]==' ') $str[$i] = $s;
-            elseif($str[$i]!=' ') $noe=true;
+
+        for ($i=0 ; $i < strlen($str); $i++) {
+            if(empty($str[$i])) {
+                $str[$i] = $s;
+            }
         }
         return $str;
     }
 
     // 判断任务是否超过预算(type : 1 刷单刷评 2 QA 3 收藏 4 游评)
-    public function is_month_budget($money = 0,$id = null,$type = 1){
+    public function is_month_budget($money = 0,$id = null,$type = 1)
+    {
         $month_start = date('Y-m-01', strtotime(date("Y-m-d")));
         $month_end = date('Y-m-d', strtotime("$month_start +1 month -1 day"));
         $month_end = $month_end . ' 23:59:59';
@@ -495,5 +503,21 @@ class MY_Controller extends CI_Controller{
         }else{
             return true;
         }
+    }
+    public function outputScript($message, $url, $type="alert")
+    {
+        $script = "<script>";
+
+        switch($type)
+        {
+            case "alert":
+                $script .= "alert('{$message}')"; break;
+            case "confirm":
+                $script .= "confirm(1231)"; break;
+
+            default:
+        }
+        $script .= ";location.href='{$url}';</script>";
+        echo $script;exit;
     }
 }
