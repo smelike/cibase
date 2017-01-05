@@ -340,27 +340,28 @@ class Task extends MY_Controller {
             $this->db->trans_start();
             if($post['is_bind'] == 1){
                 //修改product表
-                $res1_data = array();
-                $res1_data['price']          = $post['bind_price'];
-                $res1_data['discount']       = $post['bind_discount'];
-                $res1_data['dprice']         = $post['bind_dprice'];
-                $res1_data['key_word']       = $post['bind_key_word'];
-                $res1_data['shipping']       = $post['bind_shipping'];
-                $res1_data['coupon']         = $post['bind_coupon'];
-                $res1_data['update_time']    = time();
+                $row_data = array();
+                $row_data['price']          = $post['bind_price'];
+                $row_data['discount']       = $post['bind_discount'];
+                $row_data['dprice']         = $post['bind_price'] * $post['bind_discount'];
+                $row_data['dprice']         = round($row_data['dprice'], 2);
+                $row_data['key_word']       = $post['bind_key_word'];
+                $row_data['shipping']       = $post['bind_shipping'];
+                $row_data['coupon']         = $post['bind_coupon'];
+                $row_data['update_time']    = time();
                 //获取操作费
                 $handle_price1 = $this->get_handle_price($product2['type'],$product2['collection'],$post['is_relation'],$product2['fast_comment']);
-                $res1_data['total_money'] = (($post['bind_dprice'] + $post['bind_shipping'] + $post['bind_dprice'] * $product2['commrate']) * $rate + $handle_price1) * $product2['number'];
-                $res1_data['total_money'] = round($res1_data['total_money'] ,2);
+                $row_data['total_money'] = (($row_data['dprice'] + $post['bind_shipping'] + $row_data['dprice'] * $product2['commrate']) * $rate + $handle_price1) * $product2['number'];
+                $row_data['total_money'] = round($row_data['total_money'] ,2);
                 $is_month_budget1_wh['id <>'] = $product2['id'];
-                $is_month_budget1 = $this->is_month_budget($res1_data['total_money'],$is_month_budget1_wh);
+                $is_month_budget1 = $this->is_month_budget($row_data['total_money'],$is_month_budget1_wh);
                 if(!$is_month_budget1){
                     echo "<script>alert('副产品超出月度预算');location.href='$url';</script>";exit;
                 }
                 // 条件
                 $data_wh = array();
                 $data_wh['id'] = intval($product1['bind_product']);
-                $this->Data_model->editData($data_wh,$res1_data,'product');
+                $this->Data_model->editData($data_wh,$row_data,'product');
                 //查询子任务
                 $pn_list1_wh['productid'] = $product1['bind_product'];
                 if($is_begin == 1){
@@ -387,14 +388,15 @@ class Task extends MY_Controller {
                 $res2_data = array();
                 $res2_data['price']          = $post['price'];
                 $res2_data['discount']       = $post['discount'];
-                $res2_data['dprice']         = $post['dprice'];
+                $res2_data['dprice']         = $post['price'] * $post['discount'];
+                $res2_data['dprice']         = round($row_data['dprice'], 2);
                 $res2_data['key_word']       = $post['key_word'];
                 $res2_data['shipping']       = $post['shipping'];
                 $res2_data['coupon']         = $post['coupon'];
                 $res2_data['update_time']    = time();
                 //获取操作费
                 $handle_price2 = $this->get_handle_price($product1['type'],$product1['collection'],$post['is_relation'],$product1['fast_comment']);
-                $res2_data['total_money'] = (($post['dprice'] + $post['shipping'] +$post['dprice'] * $product1['commrate']) * $rate + $handle_price2) * $product1['number'];
+                $res2_data['total_money'] = (($res2_data['dprice'] + $post['shipping'] + $res2_data['dprice'] * $product1['commrate']) * $rate + $handle_price2) * $product1['number'];
                 $res2_data['total_money'] = round($res2_data['total_money'] ,2);
                 $is_month_budget_wh['id <>'] = $product1['id'];
                 $is_month_budget = $this->is_month_budget($res2_data['total_money'],$is_month_budget_wh);
@@ -497,189 +499,206 @@ class Task extends MY_Controller {
     //添加任务
     public function add()
     {
-        if ($this->input->method() == 'post'){
+
+        if ($this->input->method() == 'post') {
             $url = site_url('/task/index');
             $post = $this->input->post();
 
-            if($post['taskstart_time'] == '' || $post['taskend_time'] == ''){
-                echo "<script>alert('任务时间不能为空');location.href='$url';</script>";exit;
+            if($post['taskstart_time'] == '' || $post['taskend_time'] == '') {
+                $this->outputScript('任务时间不能为空', $url);
             }
             // fresh frequency @modified by james
             $arr_ret_data = $this->freshFrequency($post, $url);
             $num1_arr = $arr_ret_data['master_product'];
             $num2_arr = $arr_ret_data['bind_product'];
 
-            //判断任务是否冲突
-            if($post['is_bind'] == 1) {
-                if (($post['ASIN'] == $post['bind_ASIN']) && ($post['type'] == $post['bind_type'])) {
-                    echo "<script>alert('产品在任务时间内已有该类型的任务');location.href='$url';</script>";exit;
-                }
-                //副产品
-                $pro_task2 = $this->is_task($post['bind_ASIN'], $post['bind_type'], $post['taskstart_time'], $post['taskend_time']);
-                if($pro_task2){
-                    echo "<script>alert('绑定产品在任务时间内已有该类型的任务');location.href='$url';</script>";exit;
-                }
-            }
-            //主产品
-            $pro_task1 = $this->is_task($post['ASIN'], $post['type'], $post['taskstart_time'], $post['taskend_time']);
-            if($pro_task1){
-                echo "<script>alert('主产品在任务时间内已有该类型的任务');location.href='$url';</script>";exit;
-            }
+            $this->accessExceptions($post, $url);
             //获取汇率
-            $rate = $this->get_rate($post['platform']);
+
+            $row_data = array();
             //开启事务
             $this->db->trans_start();
             //如果有绑定的 先添加绑定的
-            if($post['is_bind'] == 1){
-                //添加product表
-                $res1_data = array();
-
-                //获取操作费
-                $res1_data['write_user'] = ($post['bind_type'] == 2) ? $post['bind_write_user'] : '';
-                $res1_data['fast_comment'] = ($post['bind_type'] == 2) ? $post['bind_fast_comment'] : 2;
-                $handle_price1 = $this->get_handle_price($post['bind_type'],$post['bind_collection'],$post['is_relation'],$res1_data['fast_comment']);
-                $res1_data['total_money']    = (($post['bind_dprice'] + $post['bind_shipping'] + $post['bind_dprice'] * $post['bind_commrate']) * $rate + $handle_price1) * $post['bind_number'];
-                $res1_data['total_money'] = round($res1_data['total_money'] ,2);
-                $is_month_budget1 = $this->is_month_budget($res1_data['total_money']);
-                if(!$is_month_budget1){
-                    echo "<script>alert('副产品超出月度预算');location.href='$url';</script>";exit;
-                }
-
-
-                $res1_data['ASIN']           = $post['bind_ASIN'];
-                $res1_data['bind_ASIN'] = ($post['is_relation'] == 1) ? $post['relation_ASIN'] : '';
-
-                $res1_data['bind_product']   = 2;
-                $res1_data['execute_shop']   = $post['bind_execute_shop'];
-                $res1_data['price']          = $post['bind_price'];
-                $res1_data['discount']       = $post['bind_discount'];
-                $res1_data['dprice']         = $post['bind_dprice'];
-                $res1_data['key_word']       = $post['bind_key_word'];
-                $res1_data['commrate']       = $post['bind_commrate'];
-                $res1_data['shipping']       = $post['bind_shipping'];
-                $res1_data['coupon']         = $post['bind_coupon'];
-                $res1_data['number']         = $post['bind_number'];
-                $res1_data['finish_number']  = $res1_data['comment_num']    = $res1_data['add_com_num']    = 0;
-                $res1_data['collection']     = $post['bind_collection'];
-                $res1_data['status']         = $res1_data['order_status']   = $res1_data['comment_status'] = 2;
-                $res1_data['create_time']    = time();
-                $res1_data['platform']       = $post['platform'];
-                $res1_data['type']           = $post['bind_type'];
-
-                $res1_data['xp_sta_time']  = empty($post['bxp_sta_time']) ? null : strtotime($post['bxp_sta_time']);
-                $res1_data['xp_end_time']  = empty($post['bxp_sta_time']) ? null : strtotime($post['bxp_end_time']);
-                $res1_data['taskstart_time'] = strtotime($post['taskstart_time']);
-                $res1_data['taskend_time']   = strtotime($post['taskend_time']);
-
-                $res1_data['company_id']     = $this->company_id;
-                $res1_data['middler_com_id'] = $this->middler_com_id;
-                $res1_data['adduser']        = $this->uid;
-
-
-                $product_id = $this->Data_model->addData($res1_data,'product');
-                //添加product_num表
-                $this->insertProductNumTable($num2_arr, $product_id, $post, $handle_price1);
+            $bind_product_id = false;
+            if($post['is_bind'] == 1) {
+                $handle_price = $this->accessMonthBudget($post, $row_data, $url);
+                $bind_product_id = $this->insertProduct($row_data, $post);
+                $this->insertProductNum($num2_arr, $bind_product_id, $post['platform'], $post['bind_dprice'], $handle_price);
             }
 
-            //添加主产品
-            //添加product表
-            $res2_data = array();
-            $res2_data['ASIN']           = $post['ASIN'];
-            if($post['is_relation'] == 1){
-                $res2_data['bind_ASIN']  = $post['relation_ASIN'];
-            }elseif($post['is_relation'] == 2){
-                $res2_data['bind_ASIN']  = '';
-            }
-            if($post['is_bind'] == 1){
-                $res2_data['bind_product'] = $product_id;
-            }else{
-                $res2_data['bind_product'] = 1;
-            }
-            $res2_data['execute_shop']   = $post['execute_shop'];
-            $res2_data['price']          = $post['price'];
-            $res2_data['discount']       = $post['discount'];
-            $res2_data['dprice']         = $post['dprice'];
-            $res2_data['key_word']       = $post['key_word'];
-            $res2_data['commrate']       = $post['commrate'];
-            $res2_data['shipping']       = $post['shipping'];
-            $res2_data['coupon']         = $post['coupon'];
-            $res2_data['number']         = $post['number'];
-            $res2_data['finish_number']  = 0;
-            $res2_data['comment_num']    = 0;
-            $res2_data['add_com_num']    = 0;
-            $res2_data['collection']     = $post['collection'];
-            $res2_data['status']         = 2;
-            $res2_data['order_status']   = 2;
-            $res2_data['comment_status'] = 2;
-            $res2_data['create_time']    = time();
-            $res2_data['platform']       = $post['platform'];
-            $res2_data['adduser']        = $this->uid;
-            $res2_data['type']           = $post['type'];
-            if($post['type'] == 2){
-                $res2_data['write_user']   = $post['write_user'];
-                $res2_data['fast_comment'] = $post['fast_comment'];
-                $res2_data['xp_sta_time']  = strtotime($post['xp_sta_time']);
-                $res2_data['xp_end_time']  = strtotime($post['xp_end_time']);
-            }elseif($post['type'] == 1){
-                $res2_data['write_user']   = '';
-                $res2_data['fast_comment'] = 2;
-            }
-            //获取操作费
-            $handle_price2 = $this->get_handle_price($post['type'],$post['collection'],$post['is_relation'],$res2_data['fast_comment']);
-            $res2_data['taskstart_time'] = strtotime($post['taskstart_time']);
-            $res2_data['taskend_time']   = strtotime($post['taskend_time']);
-            $res2_data['company_id']     = $this->company_id;
-            $res2_data['middler_com_id'] = $this->middler_com_id;
-            $res2_data['total_money']    = (($post['dprice'] + $post['shipping'] + $post['dprice'] * $post['commrate']) * $rate + $handle_price2) * $post['number'];
-            $res2_data['total_money'] = round($res2_data['total_money'] ,2);
-            $is_month_budget = $this->is_month_budget($res2_data['total_money']);
-            if(!$is_month_budget){
-                echo "<script>alert('主产品超出月度预算');location.href='$url';</script>";exit;
-            }
-            $id2 = $this->Data_model->addData($res2_data,'product');
-            //添加product_num表
-            for($i=0;$i<count($num1_arr);$i++){
-                $pn_data = array();
-                $pn_data['number']         = $num1_arr[$i]['num'];
-                $pn_data['productid']      = $id2;
-                $pn_data['tasktime']       = $num1_arr[$i]['date'];
-                $pn_data['finish_num']     = 0;
-                $pn_data['status']         = 2;
-                $pn_data['platform']       = $post['platform'];
-                $pn_data['pay_status']     = 2;
-                $pn_data['company_id']     = $this->company_id;
-                $pn_data['middler_com_id'] = $this->middler_com_id;
-                $pn_data['total_money']    = $post['dprice'];
-                $pn_data['operat_price']   = $handle_price2;
-                $this->Data_model->addData($pn_data,'product_num');
-            }
+            $row_data = array();
+            $handle_price = $this->accessMonthBudget($post, $row_data, $url);
+            $master_product_id = $this->insertProduct($row_data, $post, $bind_product_id);
+            $this->insertProductNum($num1_arr, $master_product_id, $post['platform'], $post['price'], $handle_price);
             $this->db->trans_complete();
-
             header( "Location: $url" );
-        }else{
-            // 获取平台
-            $pt_data = $this->query_middler_platform($this->middler_com_id);
-            //店铺列表
-            $store_list_wh = array();
-            $store_list_wh['status'] = 1;
-            $store_list_wh['company_id'] = $this->company_id;
-            $store_list_fields = 'id,name';
-            $store_list = $this->Data_model->getData($store_list_wh,'',0,0,'store',$store_list_fields);
-            //公司人员列表
-            $user_list_wh = array();
-            $user_list_wh['company_id'] = $this->company_id;
-            $user_list_wh['status'] = 1;
-            $user_list_wh['type'] = 2;
-            $user_list_fields = 'id,username';
-            $user_list = $this->Data_model->getData($user_list_wh,'',0,0,'`user`',$user_list_fields);
-
-            $this->load->vars('pt_data',$pt_data);
-            $this->load->vars('store_list',$store_list);
-            $this->load->vars('user_list',$user_list);
-            $this->load->view('task_add');
+        } else {
+            $this->show_add_form();
         }
     }
-    private function insertProductNumTable($num2_arr, $product_id, $post, $handle_price)
+
+    private function accessMonthBudget($post, &$row_data, $url)
+    {
+        $rate = $this->get_rate($post['platform']);
+        $row_data['fast_comment'] = 2;
+        if (($post['is_bind'] == 1) AND ($post['bind_type'] == 2)) {
+            $row_data['fast_comment'] =  $post['bind_fast_comment'];
+            $handle_price = $this->get_handle_price($post['bind_type'],$post['bind_collection'],$post['is_relation'],$row_data['fast_comment']);
+            $bind_dprice = $post['bind_price'] * $post['bind_discount'];
+            $bind_dprice = round($bind_dprice, 2);
+            $row_data['total_money']    = (($bind_dprice + $post['bind_shipping'] + $bind_dprice * $post['bind_commrate']) * $rate
+                                            + $handle_price) * $post['bind_number'];
+            $is_month_budget = $this->is_month_budget($row_data['total_money']);
+
+            if(!$is_month_budget) {
+                $this->outputScript('副产品超出月度预算', $url);
+            }
+        } else {
+            $row_data['fast_comment'] =  $post['fast_comment'];
+            $handle_price = $this->get_handle_price($post['type'],$post['collection'],$post['is_relation'],$row_data['fast_comment']);
+            $dprice = $post['price'] * $post['discount'];
+            $dprice = round($dprice, 2);
+            $row_data['total_money']    = (($dprice + $post['shipping'] + $dprice * $post['commrate']) * $rate + $handle_price) * $post['number'];
+            $row_data['total_money'] = round($row_data['total_money'] ,2);
+            $is_month_budget = $this->is_month_budget($row_data['total_money']);
+            if(!$is_month_budget) {
+                $this->outputScript('主产品超出月度预算', $url);
+            }
+        }
+
+        return  $handle_price;
+    }
+    private function accessExceptions($post, $url)
+    {
+        //判断任务是否冲突
+        if($post['is_bind'] == 1) {
+            if (($post['ASIN'] == $post['bind_ASIN']) && ($post['type'] == $post['bind_type'])) {
+                $this->outputScript('产品在任务时间内已有该类型的任务', $url);
+            }
+            //副产品
+            $pro_task2 = $this->is_task($post['bind_ASIN'], $post['bind_type'], $post['taskstart_time'], $post['taskend_time']);
+            if($pro_task2){
+                $this->outputScript('绑定产品在任务时间内已有该类型的任务', $url);
+            }
+        }
+        //主产品
+        $pro_task1 = $this->is_task($post['ASIN'], $post['type'], $post['taskstart_time'], $post['taskend_time']);
+        if($pro_task1){
+            $this->outputScript('主产品在任务时间内已有该类型的任务', $url);
+        }
+    }
+    private function show_add_form()
+    {
+        // 获取平台
+        $pt_data = $this->query_middler_platform($this->middler_com_id);
+        //店铺列表
+        $store_list_wh = array();
+        $store_list_wh['status'] = 1;
+        $store_list_wh['company_id'] = $this->company_id;
+        $store_list_fields = 'id,name';
+        $store_list = $this->Data_model->getData($store_list_wh,'',0,0,'store',$store_list_fields);
+        //公司人员列表
+        $user_list_wh = array();
+        $user_list_wh['company_id'] = $this->company_id;
+        $user_list_wh['status'] = 1;
+        $user_list_wh['type'] = 2;
+        $user_list_fields = 'id,username';
+        $user_list = $this->Data_model->getData($user_list_wh,'',0,0,'`user`',$user_list_fields);
+
+        $this->load->vars('pt_data',$pt_data);
+        $this->load->vars('store_list',$store_list);
+        $this->load->vars('user_list',$user_list);
+        $this->load->view('task_add');
+    }
+
+    /* @绑定产品
+     * @param $post
+     * @param $row_data
+     * */
+    private function bindProduct($post, &$row_data)
+    {
+        $row_data['ASIN']      = $post['bind_ASIN'];
+        $row_data['bind_product']   = 2;
+        $row_data['execute_shop']   = $post['bind_execute_shop'];
+        $row_data['price']          = $post['bind_price'];
+        $row_data['discount']       = $post['bind_discount'];
+        //$row_data['dprice']         = $post['bind_dprice'];
+        $row_data['dprice']         = $post['bind_price'] * $post['bind_discount'];
+        $row_data['dprice']         = round($row_data['dprice'], 2);
+        $row_data['key_word']       = $post['bind_key_word'];
+        $row_data['commrate']       = $post['bind_commrate'];
+        $row_data['shipping']       = $post['bind_shipping'];
+        $row_data['coupon']         = $post['bind_coupon'];
+        $row_data['number']         = $post['bind_number'];
+        $row_data['collection']     = $post['bind_collection'];
+        $row_data['type']           = $post['bind_type'];
+        $row_data['write_user'] = ($post['bind_type'] == 2) ? $post['bind_write_user'] : '';
+    }
+
+    /* @主产品
+     * @param $post
+     * @param $row_data
+     * @param $product_id
+     * */
+    private function masterProduct($post, &$row_data, $product_id = false)
+    {
+
+        $row_data['ASIN']      = $post['ASIN'];
+        $row_data['bind_product']      = ($post['is_bind'] == 1) ? $product_id : 1;
+        $row_data['execute_shop']      = $post['execute_shop'];
+        $row_data['price']             = $post['price'];
+        $row_data['discount']          = $post['discount'];
+        $row_data['dprice']            = $post['price'] * $post['discount'];
+        $row_data['dprice']            = round($row_data['dprice'], 2);
+        $row_data['key_word']          = $post['key_word'];
+        $row_data['commrate']          = $post['commrate'];
+        $row_data['shipping']          = $post['shipping'];
+        $row_data['coupon']            = $post['coupon'];
+        $row_data['number']            = $post['number'];
+        $row_data['collection']     = $post['collection'];
+        $row_data['type']           = $post['type'];
+        $row_data['write_user']     = ($post['type'] == 2) ? $post['write_user'] : '';
+    }
+
+    /* @插入产品
+     * @param $row_data
+     * @param $post
+     * */
+    private function insertProduct($row_data, $post)
+    {
+
+        if ($post['is_bind'] == 1) {
+            $this->bindProduct($post, $row_data);
+        } else if ($post['is_bind'] == 2) {
+            $this->masterProduct($post, $row_data);
+        }
+
+        $row_data['platform']       = $post['platform'];
+        $row_data['finish_number']  = $row_data['comment_num']    = $row_data['add_com_num']    = 0;
+        $row_data['status']         = $row_data['order_status']   = $row_data['comment_status'] = 2;
+        $row_data['bind_ASIN'] = ($post['is_relation'] == 1) ? $post['relation_ASIN'] : '';
+
+        $row_data['create_time']    = time();
+        $row_data['taskstart_time'] = strtotime($post['taskstart_time']);
+        $row_data['taskend_time']   = strtotime($post['taskend_time']);
+        $row_data['xp_sta_time']  = empty($post['bxp_sta_time']) ? null : strtotime($post['bxp_sta_time']);
+        $row_data['xp_end_time']  = empty($post['bxp_sta_time']) ? null : strtotime($post['bxp_end_time']);
+
+        $row_data['adduser']        = $this->uid;
+        $row_data['company_id']     = $this->company_id;
+        $row_data['middler_com_id'] = $this->middler_com_id;
+
+        return $this->Data_model->addData($row_data,'product');
+    }
+
+    /* @插入 product_num 表
+     * @param $num2_arr
+     * @param $product_id
+     * @param $platform
+     * @param $price
+     * @param $handle_price
+     * */
+    private function insertProductNum($num2_arr, $product_id, $platform, $price, $handle_price)
     {
         for($i = 0; $i < count($num2_arr); $i++){
             $pn_data = array();
@@ -688,15 +707,14 @@ class Task extends MY_Controller {
             $pn_data['tasktime']       = $num2_arr[$i]['date'];
             $pn_data['finish_num']     = 0;
             $pn_data['status']         = 2;
-            $pn_data['platform']       = $post['platform'];
+            $pn_data['platform']       = $platform;
             $pn_data['pay_status']     = 2;
             $pn_data['company_id']     = $this->company_id;
             $pn_data['middler_com_id'] = $this->middler_com_id;
-            $pn_data['total_money']    = $post['bind_dprice'];
+            $pn_data['total_money']    = $price;
             $pn_data['operat_price']   = $handle_price;
             $this->Data_model->addData($pn_data,'product_num');
         }
-
     }
 
     /* @fresh frequency
@@ -742,7 +760,6 @@ class Task extends MY_Controller {
         $master_total = $master_total + array_sum($master_product_num);
         $bind_total = $bind_total + array_sum($bind_product_num);
 
-
         if($master_total != $post['number']) {
             echo "<script>alert('主产品的任务数量与频率不符');location.href='$url';</script>";exit;
         }
@@ -761,66 +778,57 @@ class Task extends MY_Controller {
     }
 
     //重新计算
-    private function total_money($id){
-        $data = $this->Data_model->getSingle(array('id'=>(int)$id ),'product');
-        $rate = $this->get_rate($data['platform']);
-        $num = $this->get_num($id);
-        if($data['bind_ASIN']){
-            $is_relation = 1;
-        }else{
-            $is_relation = 2;
-        }
-        $handle_price = $this->get_handle_price($data['type'],$data['collection'],$is_relation,$data['fast_comment']);
-        $total_money  = (($data['dprice'] + $data['shipping'] + $data['dprice'] * $data['commrate']) * $rate + $handle_price) * $num;
-        $total_money = round($total_money ,2);
-        $is_month_budget1_wh['id <>'] = $data['id'];
-        $is_month_budget1 = $this->is_month_budget($total_money,$is_month_budget1_wh);
-        if(!$is_month_budget1){
-            echo json_encode(array('s'=>0,'msg'=>'主产品超出月度预算'));exit;
-        }
+    private function total_money($id) {
 
-        $arr = array();
-        $arr['total_money'] = $total_money;
-        $arr['number'] = $num;
-        $ret = $this->Data_model->editData(array('id'=>$id),$arr,'product');
+        $data = $this->Data_model->getSingle(array('id'=>$id ),'product');
+        $bind_product_id = $data['bind_product'];
+        $bind_product_id = ($bind_product_id > 2) ? $bind_product_id : 0;
+        $arr_product_id = array($id, $bind_product_id);
 
-        $id2 = $data['bind_product'];
-        if($id2>2){
-            //绑定数据更新
-            $data = $this->Data_model->getSingle(array('id'=>$id2 ),'product');
-            $num = $this->get_num($id2);
-            if($data['bind_ASIN']){
-                $is_relation = 1;
-            }else{
-                $is_relation = 2;
-            }
+        $product_datas = $this->Data_model->getMultis(array('id' => $arr_product_id),'product');
+
+        foreach($product_datas as $data)
+        {
+            $id = ($data['bind_product'] > 2) ? $data['bind_product'] : $data['id'];
+
+            $num = $this->get_num($id);
+            $is_relation = $data['bind_ASIN'] ? 1 : 2;
             $handle_price = $this->get_handle_price($data['type'],$data['collection'],$is_relation,$data['fast_comment']);
+            $rate = $this->get_rate($data['platform']);
             $total_money  = (($data['dprice'] + $data['shipping'] + $data['dprice'] * $data['commrate']) * $rate + $handle_price) * $num;
             $total_money = round($total_money ,2);
-            $is_month_budget_wh['id <>'] = $data['id'];
-            $is_month_budget = $this->is_month_budget($total_money,$is_month_budget_wh);
+            //$is_month_budget1_wh['id <>'] = $data['id'];
+            //$is_month_budget = 0;
+            $is_month_budget = $this->is_month_budget($total_money, $data['id']);
+
             if(!$is_month_budget){
-                echo json_encode(array('s'=>0,'msg'=>'副产品超出月度预算'));exit;
+                if ($data['bind_product'] > 2) {
+                    echo json_encode(array('s'=>0,'msg'=>'副产品超出月度预算'));exit;
+                }
+                echo json_encode(array('s'=>0,'msg'=>'主产品超出月度预算'));exit;
             }
 
             $arr = array();
             $arr['total_money'] = $total_money;
             $arr['number'] = $num;
-            $ret = $this->Data_model->editData(array('id'=>$id2),$arr,'product');
+            $ret = $this->Data_model->editData(array('id'=>$id),$arr,'product');
         }
-
-        return $ret;
     }
+    private function total_money_month_budget($arr_product_id)
+    {
 
+
+    }
     //product总数量
-    private function get_num($id){
+    private function get_num($id)
+    {
         $numbs = $this->Data_model->getData(array('productid'=>$id ),$order='',$pagenum="0",$exnum="0",$table='product_num',$fields='sum(`number`) as count',$groupby='');
-        //$sql = $this->db->last_query();echo $sql;
         return $numbs[0]['count'];
     }
 
     //删除任务（修改状态）
-    public function del_task(){
+    public function del_task()
+    {
         if($this->input->method() == 'post'){
             $post_s = $this->input->post();
 
@@ -974,11 +982,13 @@ class Task extends MY_Controller {
         }
     }
 
+    /*
     // 判断任务是否冲突接口
-    public function is_task_json(){
-        if ($this->input->method() == 'post'){
+    public function is_task_json()
+    {
+        if ($this->input->method() == 'post')
+        {
             $post = $this->input->post();
-
             //查询任务
             $table = 'product a';
             $join = array();
@@ -992,17 +1002,13 @@ class Task extends MY_Controller {
             $fields = 'b.id,a.ASIN,a.type,b.tasktime';
             $order = 'b.tasktime ASC';
             $group = '';
-            $first = 0;
-            $num = 0;
+            $first = $num = 0;
             $list = $this->Data_model->getJoinData($table, $join, $where, $fields, $order, $group, $first, $num);
 
-            if ($list){
-                echo 1;
-            }else{
-                echo 2;
-            }
+            return $list ? 1 : 2;
         }
     }
+    */
 
 /*     // 判断任务是否超过预算
     public function is_month_budget($money = 0,$task_wh = null){
