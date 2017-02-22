@@ -42,6 +42,15 @@ YUJING LI:
 xiaojian xu: 
 我认为，作为一名成年人都应该拥有这种理解技能，由工作地点，工作时间，工作内容三个相结合，就可以理解到这份工作是否适合自己。其实，还有其他的因素，如：薪资、公司的前途、妹子多不多，又或者公司是否可以提供给发展前景和平台。不过，工作的本质还是不变。我不敢说我爱工作，我敢说我爱编程。 
 
+#Origin:
+
+Post hoc ergo procter hoc: after this, therefore resulting from it.
+
+Dedication causes enthusiasm.
+
+Quit when you have the chance.
+
+
 
 #有人说，“这是典型的先恋爱再结婚还是先结婚再恋爱的问题“。
 “先恋爱再结婚，还是先结婚再恋爱”，这句话将恋爱与结婚做了绑定，似乎只要你恋爱，那就是要结婚。让我们看看著名作家钱钟书一段流传甚广的话：
