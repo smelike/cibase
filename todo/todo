@@ -1,0 +1,8 @@
+
+#ToDo
+
+- 写一个 shell 脚本，定时执行提交 my_git_laboratory's change;
+	(1) 主要问题，如何将 “comment” 传入给脚本;
+	(2) 定时执行，使用 Linux Crontab;
+
+- ... 
