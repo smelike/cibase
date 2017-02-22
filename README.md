@@ -1,4 +1,4 @@
-#Jame's git laboratory.
+#Jame's Git Laboratory.
 
 This laboratory is birthed in @Februay 22 2017.  
 
