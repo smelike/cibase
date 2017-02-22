@@ -1,4 +1,8 @@
-Ma & xiaojianxu Inmail
+#论题：#说这份工作不适合我就是耍流氓？
+
+有人说，“这是典型的先恋爱再结婚还是先结婚再恋爱的问题“。
+
+Eric Ma & xiaojianxu Inmail
 
 Eric Ma: 
 Nice to meet you.
