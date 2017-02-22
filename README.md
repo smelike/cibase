@@ -1,5 +1,4 @@
-# code optimize
-Jame's git laboratory.
+#Jame's git laboratory.
 
 This laboratory is birthed in @Februay 22 2017.  
 
