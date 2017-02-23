@@ -85,7 +85,7 @@ Quit when you have the chance.
 
 
 #About Linkedin
-> 我找到 Linkedin 的另一个意想不到的用处，不过只是新用户有用，而对我自己用处不大。
+> 我找到 Linkedin 的另一个意想不到用处，不过只是对新用户有用，而对我自己用处不大。
 
 # About myself
 我知道，我唯一的途径就是勤奋、勤奋，琢磨，不断的增加自己的耐心。明天，比今天更有耐心。
